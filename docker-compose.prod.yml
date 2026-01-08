@@ -1,0 +1,131 @@
+# Production Docker Compose - Uses pre-built images from GitHub Container Registry
+# For faster startup without building from source
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up
+
+services:
+  # --- Frontend Web Interface (React/Next.js) ---
+  frontend:
+    image: ghcr.io/sricharan-koride/smartdoc-finder-frontend:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_BACKEND_URL=http://backend:8080
+    depends_on:
+      - backend
+
+  # --- Backend API & Orchestrator (Java/Spring) ---
+  backend:
+    image: ghcr.io/sricharan-koride/smartdoc-finder-backend:latest
+    ports:
+      - "8080:8080"
+      - "5005:5005"
+    environment:
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://db:5432/${POSTGRES_DB}"
+      SPRING_DATASOURCE_USERNAME: "${POSTGRES_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD}"
+      INDEXING_SOURCE_PATH: "/host-documents"
+      SPRING_RABBITMQ_HOST: "rabbitmq"
+      SPRING_APPLICATION_JSON: '{"embedding.service.url": "http://embedding-api:8000", "generator.service.url": "http://generator:8000", "reranker.service.url": "http://reranker:8000"}'
+    volumes:
+      - lucene_index:/lucene-index
+      - ${USER_DATA_DIRECTORY}:/host-documents
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # --- Embedding API (Python/FastAPI) ---
+  embedding-api:
+    image: ghcr.io/sricharan-koride/smartdoc-finder-embedding:latest
+    ports:
+      - "8001:8000"
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+    volumes:
+      - faiss_index:/app/index
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    depends_on:
+      - rabbitmq
+
+  # --- Embedding Worker (Python/FAISS) ---
+  embedding-worker:
+    image: ghcr.io/sricharan-koride/smartdoc-finder-embedding:latest
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_HEARTBEAT=0
+    volumes:
+      - faiss_index:/app/index
+    command: python -u build_faiss_index.py
+    restart: unless-stopped
+    depends_on:
+      - rabbitmq
+
+  # --- Reranker Service (Python/FastAPI) ---
+  reranker:
+    image: ghcr.io/sricharan-koride/smartdoc-finder-reranker:latest
+    ports:
+      - "9001:8000"
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+
+  # --- Generator Service (Python/FastAPI) ---
+  generator:
+    image: ghcr.io/sricharan-koride/smartdoc-finder-generator:latest
+    ports:
+      - "9000:8000"
+      - "5679:5678"
+    command: python -m uvicorn main:app --host 0.0.0.0 --port 8000
+    depends_on:
+      - ollama
+
+  # --- Ollama LLM Service ---
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+  # --- PostgreSQL Database ---
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- RabbitMQ Message Broker ---
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+# --- Define Named Volumes for Data Persistence ---
+volumes:
+  db_data:
+  lucene_index:
+  faiss_index:
+  ollama_data:

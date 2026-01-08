@@ -54,10 +54,8 @@ This repository serves as the orchestration layer for the project, linking sever
 
 ### 1. Clone with Submodules
 
-Because this project uses Git submodules, you must use the `--recurse-submodules` flag when cloning:
-
 ```bash
-git clone --recurse-submodules https://github.com/<Your-Username>/smartdoc-finder.git
+git clone --recurse-submodules https://github.com/sricharan-koride/smartdoc-finder.git
 cd smartdoc-finder
 ```
 
@@ -66,15 +64,32 @@ cd smartdoc-finder
 Create a `.env` file in the project root by copying the `.env.example` file.  
 The most important variable to set is `USER_DATA_DIRECTORY`, which should point to the folder on your local machine containing the documents you want to index.
 
-### 3. Build and Run the Application
+---
 
-This command will build all the service images and start the containers:
+## 🚀 Quick Start (Recommended)
+
+Use pre-built Docker images for the fastest startup (~30 seconds):
 
 ```bash
-docker-compose up --build
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up
 ```
 
-### 4. Download AI Models (First-Time Setup)
+---
+
+## 🛠️ Development Mode
+
+Build from source (for development or contributing):
+
+```bash
+docker compose up --build
+```
+
+This will build all service images locally, which takes longer on first run.
+
+---
+
+### Download AI Models (First-Time Setup)
 
 The first time you run the application, the AI services need to download their models. This can take several minutes. You can monitor the progress by watching the logs.
 
@@ -82,3 +97,4 @@ The first time you run the application, the AI services need to download their m
 - **Embedding & Reranker**: These services will download their models when they first start up.
 
 The application will be ready to use once all services are running and the models are downloaded.
+
