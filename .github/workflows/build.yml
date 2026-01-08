@@ -8,6 +8,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}
 
 jobs:
   build-and-push:
@@ -35,8 +36,8 @@ jobs:
           context: ./smartdoc-finder-backend
           push: true
           tags: |
-            ${{ env.REGISTRY }}/codejunkie1609/smartdoc-finder-backend:latest
-            ${{ env.REGISTRY }}/codejunkie1609/smartdoc-finder-backend:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/smartdoc-finder-backend:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/smartdoc-finder-backend:${{ github.sha }}
 
       - name: Build and push frontend
         uses: docker/build-push-action@v5
@@ -44,8 +45,8 @@ jobs:
           context: ./smartdoc-finder-frontend
           push: true
           tags: |
-            ${{ env.REGISTRY }}/codejunkie1609/smartdoc-finder-frontend:latest
-            ${{ env.REGISTRY }}/codejunkie1609/smartdoc-finder-frontend:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/smartdoc-finder-frontend:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/smartdoc-finder-frontend:${{ github.sha }}
 
       - name: Build and push embedding
         uses: docker/build-push-action@v5
@@ -53,8 +54,8 @@ jobs:
           context: ./smartdoc-finder-embedding
           push: true
           tags: |
-            ${{ env.REGISTRY }}/codejunkie1609/smartdoc-finder-embedding:latest
-            ${{ env.REGISTRY }}/codejunkie1609/smartdoc-finder-embedding:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/smartdoc-finder-embedding:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/smartdoc-finder-embedding:${{ github.sha }}
 
       - name: Build and push generator
         uses: docker/build-push-action@v5
@@ -62,8 +63,8 @@ jobs:
           context: ./smartdoc-finder-generator
           push: true
           tags: |
-            ${{ env.REGISTRY }}/codejunkie1609/smartdoc-finder-generator:latest
-            ${{ env.REGISTRY }}/codejunkie1609/smartdoc-finder-generator:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/smartdoc-finder-generator:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/smartdoc-finder-generator:${{ github.sha }}
 
       - name: Build and push reranker
         uses: docker/build-push-action@v5
@@ -71,5 +72,5 @@ jobs:
           context: ./smartdoc-finder-reranker
           push: true
           tags: |
-            ${{ env.REGISTRY }}/codejunkie1609/smartdoc-finder-reranker:latest
-            ${{ env.REGISTRY }}/codejunkie1609/smartdoc-finder-reranker:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/smartdoc-finder-reranker:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/smartdoc-finder-reranker:${{ github.sha }}
