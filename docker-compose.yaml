@@ -36,10 +36,7 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-      generator:
-        condition: service_started # Changed to started to avoid healthcheck issues
-      reranker:
-        condition: service_started # Changed to started to avoid healthcheck issues
+  
 
   # --- Embedding API (Python/FastAPI) ---
   embedding-api:
@@ -61,9 +58,11 @@ services:
       context: ./smartdoc-finder-embedding
     environment:
       - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_HEARTBEAT=0
     volumes:
       - faiss_index:/app/index
     command: python -u build_faiss_index.py
+    restart: unless-stopped
     depends_on:
       - rabbitmq
 
@@ -125,8 +124,9 @@ services:
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
-      timeout: 5s
-      retries: 5
+      timeout: 10s
+      retries: 10
+      start_period: 30s
 
 # --- Define Named Volumes for Data Persistence ---
 volumes:
