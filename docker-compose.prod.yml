@@ -27,42 +27,23 @@ services:
       SPRING_DATASOURCE_USERNAME: "${POSTGRES_USER}"
       SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD}"
       INDEXING_SOURCE_PATH: "/host-documents"
-      SPRING_RABBITMQ_HOST: "rabbitmq"
-      SPRING_APPLICATION_JSON: '{"embedding.service.url": "http://embedding-api:8000", "generator.service.url": "http://generator:8000", "reranker.service.url": "http://reranker:8000"}'
+      SPRING_APPLICATION_JSON: '{"embedding.service.url": "http://embedding-api:8000", "generator.service.url": "http://generator:8000", "reranker.service.url": "http://reranker:8000", "opensearch.host": "opensearch", "qdrant.host": "qdrant"}'
     volumes:
-      - lucene_index:/lucene-index
       - ${USER_DATA_DIRECTORY}:/host-documents
     depends_on:
       db:
         condition: service_healthy
-      rabbitmq:
+      opensearch:
         condition: service_healthy
+      qdrant:
+        condition: service_started
 
   # --- Embedding API (Python/FastAPI) ---
   embedding-api:
     image: ghcr.io/sricharan-koride/smartdoc-finder-embedding:latest
     ports:
       - "8001:8000"
-    environment:
-      - RABBITMQ_HOST=rabbitmq
-    volumes:
-      - faiss_index:/app/index
     command: uvicorn main:app --host 0.0.0.0 --port 8000
-    depends_on:
-      - rabbitmq
-
-  # --- Embedding Worker (Python/FAISS) ---
-  embedding-worker:
-    image: ghcr.io/sricharan-koride/smartdoc-finder-embedding:latest
-    environment:
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_HEARTBEAT=0
-    volumes:
-      - faiss_index:/app/index
-    command: python -u build_faiss_index.py
-    restart: unless-stopped
-    depends_on:
-      - rabbitmq
 
   # --- Reranker Service (Python/FastAPI) ---
   reranker:
@@ -107,25 +88,35 @@ services:
       timeout: 5s
       retries: 5
 
-  # --- RabbitMQ Message Broker ---
-  rabbitmq:
-    image: rabbitmq:3.13-management-alpine
+  # --- OpenSearch (Keyword Search) ---
+  opensearch:
+    image: opensearchproject/opensearch:2.11.0
     environment:
-      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
-      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+      - discovery.type=single-node
+      - plugins.security.disabled=true
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=admin
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "9200:9200"
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      test: ["CMD-SHELL", "curl -s http://localhost:9200 | grep -q 'cluster_name'"]
       interval: 10s
-      timeout: 10s
+      timeout: 5s
       retries: 10
-      start_period: 30s
+
+  # --- Qdrant (Vector Search) ---
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
 
 # --- Define Named Volumes for Data Persistence ---
 volumes:
   db_data:
-  lucene_index:
-  faiss_index:
   ollama_data:
+  opensearch_data:
+  qdrant_data:
